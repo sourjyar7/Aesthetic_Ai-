@@ -153,7 +153,7 @@ shopping_agent/
 **Verified:** `psql` → `server_version` 18.6, `pgvector` 0.8.6, `'[1,0,0]'::vector <=> '[0,1,0]'::vector` = 1.
 **Guards:** use the direct URL for migrations (the pooled `-pooler` host is for the deployed API later); never print or commit the connection string; latency measured against Neon includes network time — report database time from `EXPLAIN ANALYZE` separately; the first query after an idle pause is slower (cold start).
 
-## Step 3 — FastAPI service skeleton
+## Step 3 — FastAPI service skeleton ✅ (done 2026-10-04)
 
 **Implement** (`apps/api`, package `aesthetic_api`)
 1. `apps/api/pyproject.toml`: `aesthetic-api`; deps `fastapi[standard]`, `pydantic-settings`, `sqlalchemy>=2`, `psycopg[binary]`, `pgvector`, `alembic`, `aesthetic` (workspace source).

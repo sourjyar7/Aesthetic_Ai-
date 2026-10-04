@@ -14,6 +14,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["ai", "catalog", "evaluation"]
 
+[tool.uv.workspace]
+members = ["apps/api"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"
@@ -21,12 +24,19 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
+[tool.ruff.lint.isort]
+known-first-party = ["ai", "catalog", "evaluation", "aesthetic_api"]
+
 [tool.mypy]
 python_version = "3.12"
 strict = true
+plugins = ["pydantic.mypy"]
+explicit_package_bases = true
+mypy_path = "apps/api"
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "apps/api/tests"]
+addopts = "--import-mode=importlib"
 markers = [
     "integration: needs running services such as Postgres",
     "slow: loads ML models or large data; skipped in CI",
@@ -34,6 +44,7 @@ markers = [
 
 [dependency-groups]
 dev = [
+    "httpx2>=2.13.1",
     "mypy>=2.4.0",
     "pytest>=9.1.1",
     "ruff>=0.16.10",
