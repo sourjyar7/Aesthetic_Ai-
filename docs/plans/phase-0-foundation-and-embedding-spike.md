@@ -23,7 +23,7 @@ LLM integration (no API key needed yet), the multi-store collector, the chat UI,
 | Repo | Monorepo in the current folder, branch `main` | One place for web, API, engine, data pipeline, evaluation |
 | Python | 3.12 (uv-managed), uv workspace: root package `aesthetic` (`ai/`, `catalog/`, `evaluation/`) + member `apps/api` (`aesthetic-api`) | Keeps the spec's `python -m catalog…` / `python -m evaluation…` commands; the API depends on the engine |
 | PyTorch | Installed from the PyTorch CPU index on every platform | macOS builds still include Apple-GPU (MPS) support; CI never downloads multi-GB CUDA builds |
-| Database | Postgres 18 + pgvector 0.8.x (`pgvector/pgvector:pg18-trixie`) | Filters and vector search in one SQL query; plenty for 50k products |
+| Database | Neon (hosted Postgres 18 + pgvector 0.8.x) for development and the demo; `pgvector/pgvector:pg18-trixie` container only in CI | Filters and vector search in one SQL query; no local Docker needed; CI stays free and isolated |
 | Not yet | Redis, object storage, queues, Kubernetes | No concrete need in Phase 0 |
 | API | FastAPI + SQLAlchemy 2 + psycopg 3 + Alembic + pydantic-settings | Typed, standard, simple |
 | Web | Next.js 16 (App Router, TypeScript, Tailwind, ESLint), pnpm workspace | Matches the spec |
@@ -66,11 +66,9 @@ shopping_agent/
 │   ├── decisions/            ADRs
 │   ├── experiments/          experiment write-ups (+ assets/)
 │   └── architecture.md
-├── infrastructure/docker/initdb/
 ├── data/                     git-ignored: raw/, processed/, embeddings/
 ├── tests/                    tests for ai/, catalog/, evaluation/
 ├── pyproject.toml            uv workspace root + root package
-├── docker-compose.yml
 ├── Makefile
 ├── package.json, pnpm-workspace.yaml
 └── .github/workflows/ci.yml
@@ -129,7 +127,7 @@ shopping_agent/
 
 ---
 
-## Step 1 — Repo skeleton and Python tooling
+## Step 1 — Repo skeleton and Python tooling ✅ (done 2026-10-04)
 
 **Implement**
 1. `git init -b main`; `.gitignore` (Python, Node, `.env`, `.venv`, `data/`, `.next`, `node_modules`, `evaluation/reports/`), `.editorconfig`, stub `README.md`, `LICENSE` (open question 1).
@@ -142,16 +140,18 @@ shopping_agent/
 **Verify:** `uv sync` ✓ · `uv run ruff check .` ✓ · `uv run mypy ai catalog evaluation` ✓ · `uv run pytest` ✓ · first commit.
 **Guards:** the root must be a workspace member with its own `pyproject.toml`; no torch from PyPI CUDA wheels.
 
-## Step 2 — Postgres + pgvector in Docker
+## Step 2 — Postgres + pgvector on Neon ✅ (done 2026-10-04)
 
-**Implement**
-1. `docker-compose.yml`: service `db`, image `pgvector/pgvector:pg18-trixie`; `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` = `aesthetic` from `.env` (local-dev values only); port `5432:5432`; named volume at `/var/lib/postgresql`; healthcheck `pg_isready -U aesthetic`; mount `infrastructure/docker/initdb/` at `/docker-entrypoint-initdb.d/`.
-2. `infrastructure/docker/initdb/001-extensions.sql`: `CREATE EXTENSION IF NOT EXISTS vector;`
-3. `.env.example` with `DATABASE_URL=postgresql+psycopg://aesthetic:aesthetic@localhost:5432/aesthetic`; copy to `.env` (git-ignored).
+*Changed from the original draft: hosted Neon instead of a local Docker container.*
 
-**Docs:** Postgres image docs; pgvector README.
-**Verify:** `docker compose up -d db` → healthy · `docker compose exec db psql -U aesthetic -c "select extversion from pg_extension where extname = 'vector'"` prints 0.8.x · host `psql` connects.
-**Guards:** pg18 volume path; init scripts only run on an empty volume (document `docker compose down -v` to reset).
+**Implemented**
+1. Neon project (Free plan), Postgres 18.6, region `ap-southeast-1` (Singapore), database `neondb`.
+2. `CREATE EXTENSION IF NOT EXISTS vector;` run in the Neon SQL editor (Step 3's migration repeats it so any new database gets it).
+3. `.env.example` (committed template) and `.env` (git-ignored, mode 600) with the **direct** (unpooled) `DATABASE_URL` using the `postgresql+psycopg://` prefix.
+
+**Docs:** https://neon.com/docs/extensions/pgvector — pgvector on every plan; `CREATE EXTENSION IF NOT EXISTS vector;`; `vector` up to 2,000 dimensions. Free plan: 1 GB storage per project, 100 CU-hours/month, scales to zero after 5 minutes idle.
+**Verified:** `psql` → `server_version` 18.6, `pgvector` 0.8.6, `'[1,0,0]'::vector <=> '[0,1,0]'::vector` = 1.
+**Guards:** use the direct URL for migrations (the pooled `-pooler` host is for the deployed API later); never print or commit the connection string; latency measured against Neon includes network time — report database time from `EXPLAIN ANALYZE` separately; the first query after an idle pause is slower (cold start).
 
 ## Step 3 — FastAPI service skeleton
 
@@ -181,7 +181,7 @@ shopping_agent/
 ## Step 5 — Dev commands, CI and docs
 
 **Implement**
-1. `Makefile`: `setup` (uv sync + pnpm install), `db`, `db-reset`, `migrate`, `api`, `web`, `lint`, `typecheck`, `test`, `spike` (runs Steps 6–12 end to end from cached data).
+1. `Makefile`: `setup` (uv sync + pnpm install), `migrate`, `api`, `web`, `lint`, `typecheck`, `test`, `spike` (runs Steps 6–12 end to end from cached data).
 2. `.github/workflows/ci.yml`:
    - **python** — checkout → setup-uv (cache, Python 3.12) → `uv sync --all-packages --locked` → ruff → mypy → migrations → `pytest -m "not slow"` with a `pgvector/pgvector:pg18-trixie` service container and `DATABASE_URL` set.
    - **web** — checkout → pnpm/action-setup (cache) → setup-node (Node 20, pnpm cache) → `pnpm install --frozen-lockfile` → lint → typecheck → build.
@@ -255,9 +255,9 @@ shopping_agent/
 ## Step 11 — pgvector parity check
 
 **Implement** `python -m evaluation.spike.pgvector_check`
-1. Per model, a table `spike_<model_key>` (`item_id bigint primary key`, `gender`, `category3`, `base_colour`, `embedding vector(<dim>)`), bulk-inserted with psycopg 3 + `register_vector`.
+1. On Neon, per model, a table `spike_<model_key>` (`item_id bigint primary key`, `gender`, `category3`, `base_colour`, `embedding vector(<dim>)`), bulk-inserted with psycopg 3 + `register_vector`.
 2. Exact search (no index): `ORDER BY embedding <=> %s LIMIT 10`, plus `WHERE category3 = %s` for filtered queries → compare with the numpy top 10 for every query (ignoring order among exact ties).
-3. Build an HNSW index (`vector_cosine_ops`) → recall@10 against exact search, p50/p95 latency; filtered queries with `SET hnsw.iterative_scan = strict_order;` must still return 10 rows.
+3. Build an HNSW index (`vector_cosine_ops`) → recall@10 against exact search; p50/p95 latency both end-to-end and database-only (`EXPLAIN ANALYZE`); filtered queries with `SET hnsw.iterative_scan = strict_order;` must still return 10 rows.
 
 **Verify:** exact parity on every query; HNSW recall@10 reported (expect ≥ 0.95); latency added to `results.json`.
 **Guards:** don't expect HNSW to equal exact search; spike tables are not part of the migrations and are dropped afterwards.
@@ -277,7 +277,7 @@ shopping_agent/
 
 ## Step 13 — Final verification
 
-- Fresh clone → `make setup && make db && make migrate && make test` ✓; `make api` + `make web` → the badge shows *ready*.
+- Fresh clone + `.env` → `make setup && make migrate && make test` ✓; `make api` + `make web` → the badge shows *ready*.
 - `make spike` reproduces `results.json` from cached data and vectors (same top-10s).
 - Anti-pattern greps: no `cuda` in `ai/ catalog/ evaluation/`; no `trust_remote_code`; model ids only in `ai/embeddings/registry.py`; `git grep -nE "(PASSWORD|API_KEY)=" -- ':!*.example'` finds nothing; `.env` and `data/` are ignored.
 - Lint, type checks and tests green; one commit per step with a clear message.
