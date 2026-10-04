@@ -197,7 +197,10 @@ shopping_agent/
 **Verify (when done):** CI runs on the first push (open question 3).
 **Guards:** no Redis/queues/object storage; CI must not pull CUDA torch.
 
-## Step 6 — Spike data: download and prepare a KAGL sample
+## Step 6 — Spike data: download and prepare a KAGL sample ✅ (done 2026-10-04)
+
+**Outcome:** shard 0 was mixed (all categories, rows ordered by `item_ID`), so we took shards spread across the dataset: **0, 11, 22, 33** (1.52 GB), pinned to dataset revision `5146654f23da1f808a86370320cc8128c928f6f9`. `prepare` kept **4,787** products (Apparel 2,654 · Footwear 1,113 · Accessories 1,020; dropped 274 Personal Care, 14 Free Items, 3 Sporting Goods), 124 MB of 512 px JPEGs; re-run takes 1.6 s. Findings for later steps: **no sarees and almost no other ethnic wear** in these shards (Kurtas 96, Kurtis 5) — adapt Step 9 queries; sample skews men's (58%) and casual (78%); 19 source images are smaller than 224 px (limitation). `pyarrow-stubs` and `types-tqdm` added for mypy.
+
 
 **Implement** (`catalog/kagl/`)
 1. Add data deps to the root package: `huggingface_hub`, `pyarrow`, `pillow`, `numpy`, `tqdm`, `pyyaml`.

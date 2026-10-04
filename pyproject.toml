@@ -5,7 +5,14 @@ description = "Aesthetic: conversational, multimodal shopping assistant (engine,
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "huggingface-hub>=2.1.1",
+    "numpy>=2.5.3",
+    "pillow>=12.3.0",
+    "pyarrow>=25.0.1",
+    "pyyaml>=6.0.3",
+    "tqdm>=4.70.1",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -46,6 +53,8 @@ markers = [
 dev = [
     "httpx2>=2.13.1",
     "mypy>=2.4.0",
+    "pyarrow-stubs>=20.0.0.20260819",
     "pytest>=9.1.1",
     "ruff>=0.16.10",
+    "types-tqdm>=4.70.0.20260906",
 ]
