@@ -1,0 +1,7 @@
+packages:
+  - apps/web
+
+# Packages whose install scripts pnpm should not run (carried over from create-next-app).
+ignoredBuiltDependencies:
+  - sharp
+  - unrs-resolver

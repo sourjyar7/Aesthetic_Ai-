@@ -167,7 +167,7 @@ shopping_agent/
 **Verify:** `uv run --package aesthetic-api fastapi dev apps/api/aesthetic_api/main.py` → `curl -i localhost:8000/api/health/ready` returns 200 with versions and `X-Request-ID` · `uv run alembic -c apps/api/alembic.ini upgrade head` ✓ · tests ✓.
 **Guards:** settings only from the environment; no tables yet beyond the extension.
 
-## Step 4 — Next.js web shell
+## Step 4 — Next.js web shell ✅ (done 2026-10-04)
 
 **Implement**
 1. Root `package.json` (`"private": true`, `"packageManager": "pnpm@10.29.3"`, scripts `dev:web`, `lint`, `typecheck`, `build`) and `pnpm-workspace.yaml` (`packages: ["apps/web"]`).
