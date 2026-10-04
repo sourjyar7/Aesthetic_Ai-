@@ -178,16 +178,23 @@ shopping_agent/
 **Verify:** `pnpm --filter web dev` → localhost:3000 renders; the badge says *ready* with API + DB up and *unreachable* with the API down · `pnpm --filter web lint` ✓ · `pnpm --filter web exec tsc --noEmit` ✓ · `pnpm --filter web build` ✓.
 **Guards:** App Router only (no Pages Router APIs such as `getServerSideProps`); nothing secret in `NEXT_PUBLIC_*`; no design work yet.
 
-## Step 5 — Dev commands, CI and docs
+## Step 5 — Dev commands ✅ (done 2026-10-04; CI and docs deferred)
 
-**Implement**
-1. `Makefile`: `setup` (uv sync + pnpm install), `migrate`, `api`, `web`, `lint`, `typecheck`, `test`, `spike` (runs Steps 6–12 end to end from cached data).
+*Scoped down by decision on 2026-10-04: only the run commands now. Items 2–3 below are deferred to a later step; more `make` targets get added when needed.*
+
+**Implemented**
+1. `Makefile` with `make api` (FastAPI dev server :8000), `make web` (Next.js dev server :3000), `make migrate` (Alembic upgrade head), and `make help` (the default).
+
+**Verified:** `make migrate` runs against Neon; `make api` + `make web` serve; `/api/health/ready` returns 200.
+
+**Deferred (not done yet)**
+
 2. `.github/workflows/ci.yml`:
    - **python** — checkout → setup-uv (cache, Python 3.12) → `uv sync --all-packages --locked` → ruff → mypy → migrations → `pytest -m "not slow"` with a `pgvector/pgvector:pg18-trixie` service container and `DATABASE_URL` set.
    - **web** — checkout → pnpm/action-setup (cache) → setup-node (Node 20, pnpm cache) → `pnpm install --frozen-lockfile` → lint → typecheck → build.
-3. Docs: `README.md` (what it is, quickstart, repo map, status); `docs/architecture.md` (current and planned components, with a diagram); ADRs in `docs/decisions/`: 0001 fashion-first, 0002 pre-built listing index instead of live web search, 0003 Postgres + pgvector, 0004 embedding candidates via open_clip, 0005 uv + pnpm monorepo.
+3. Docs (deferred): `README.md` (what it is, quickstart, repo map, status); `docs/architecture.md` (current and planned components, with a diagram); ADRs in `docs/decisions/`: 0001 fashion-first, 0002 pre-built listing index instead of live web search, 0003 Postgres + pgvector, 0004 embedding candidates via open_clip, 0005 uv + pnpm monorepo.
 
-**Verify:** `make lint typecheck test` ✓ locally; CI runs on the first push (open question 3).
+**Verify (when done):** CI runs on the first push (open question 3).
 **Guards:** no Redis/queues/object storage; CI must not pull CUDA torch.
 
 ## Step 6 — Spike data: download and prepare a KAGL sample
