@@ -213,7 +213,10 @@ shopping_agent/
 **Verify:** ~4–5k products; every `image_path` opens; stats look sane; re-running is a no-op.
 **Guards:** never load all shards into memory at once; don't commit data; `item_ID` is the product key.
 
-## Step 7 — Embedder interface and the three model adapters
+## Step 7 — Embedder interface and the three model adapters ✅ (done 2026-10-06)
+
+**Outcome:** `ai/embeddings/` — `Embedder` Protocol (`base.py`), `ModelSpec` registry (`registry.py`), one `OpenClipEmbedder` for all three models, `load_embedder(key)` front door, and `smoke.py`. All three load through open_clip on MPS; vectors are unit-length float32. Smoke on 64 product photos (M1 Pro, after warm-up): **marqo-fashion-siglip** dim 768, 46.9 img/s, text 12.4 ms · **siglip2-base** dim 768, 57.0 img/s, text 11.9 ms · **openclip-b32** dim 512, 155.2 img/s, text 9.4 ms. Tests: unknown-key check (fast) + per-model shape/norm/red-vs-blue sanity (`slow`, opt-in via `pytest -m slow`; default `addopts` skips slow). PyTorch: PyPI build on macOS, CPU index on Linux only. Built step by step in the REPL first (one checked shirt + one black dress ranked correctly by all three models).
+
 
 **Implement** (`ai/embeddings/`)
 1. Deps: `torch`, `torchvision` (CPU index), `open_clip_torch`, `timm`, `transformers`.

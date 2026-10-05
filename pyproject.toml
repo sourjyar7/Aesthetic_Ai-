@@ -6,12 +6,17 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12"
 dependencies = [
-    "huggingface-hub>=2.1.1",
+    "huggingface-hub>=1.5",
     "numpy>=2.5.3",
+    "open-clip-torch>=3.3.0",
     "pillow>=12.3.0",
     "pyarrow>=25.0.1",
     "pyyaml>=6.0.3",
+    "timm>=1.0.30",
+    "torch>=2.14.1",
+    "torchvision>=0.29.1",
     "tqdm>=4.70.1",
+    "transformers>=5.18",
 ]
 
 [build-system]
@@ -23,6 +28,16 @@ packages = ["ai", "catalog", "evaluation"]
 
 [tool.uv.workspace]
 members = ["apps/api"]
+
+# PyTorch: on Linux (CI) use the small CPU-only build; on macOS use PyPI's build (includes Apple GPU support).
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+torchvision = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
 
 [tool.ruff]
 line-length = 100
@@ -40,10 +55,13 @@ strict = true
 plugins = ["pydantic.mypy"]
 explicit_package_bases = true
 mypy_path = "apps/api"
+[[tool.mypy.overrides]]
+module = ["open_clip", "open_clip.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "apps/api/tests"]
-addopts = "--import-mode=importlib"
+addopts = "--import-mode=importlib -m 'not slow'"
 markers = [
     "integration: needs running services such as Postgres",
     "slow: loads ML models or large data; skipped in CI",
