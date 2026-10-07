@@ -230,7 +230,12 @@ shopping_agent/
 **Verify:** smoke runs for all three on MPS · `open_clip.list_pretrained()` contains `("ViT-B-32", "laion2b_s34b_b79k")` (otherwise use `hf-hub:laion/CLIP-ViT-B-32-laion2B-s34B-b79K`) · SigLIP tokenizers return `[N, 64]`.
 **Guards:** Step 0 anti-patterns (no CUDA autocast, no `trust_remote_code`, ids only in the registry).
 
-## Step 8 — Embed the sample with each model
+## Step 8 — Embed the sample with each model ✅ (done 2026-10-07)
+
+**Outcome:** `catalog/kagl/embed.py` writes `data/embeddings/kagl/<model_key>/{image_vectors,text_vectors,item_ids}.npy` + `meta.json` (model, dataset revision, device, batch size, git commit, timestamp); skips models already embedded; test with a fake `Embedder` covers chunking, row order and missing titles. All 4,787 products embedded (photos + titles), unit-length, no NaNs: openclip-b32 on MPS (batch 16, 153 img/s); **siglip2-base and marqo-fashion-siglip on CPU** (batch 16, ~33.5 img/s each).
+**Finding — Apple GPU instability:** long MPS runs of the ViT-B/16 SigLIP models hard-reset this M1 Pro (macOS 26.5) three times (no panic log; "rst crash"), while CPU runs were stable. `embed.py` therefore defaults to `--device cpu`; MPS is opt-in. Record as a limitation in the experiment report; query-time text embedding also runs on CPU.
+**First look (titles carry no texture info):** "distressed light-wash jeans" → all 15 top results across models are light/faded washes; "floral print kurta" → nearly all floral, including kurtas whose titles don't mention a print; "chunky white sneakers" → white sneakers from all models. No winner yet — scored properly in Steps 9–10.
+
 
 **Implement** `python -m catalog.kagl.embed --model <key> | --all`
 - Batches over `products.parquet`; chunked writes to `data/embeddings/<model_key>/`: `image_vectors.npy`, `text_vectors.npy` (listing `text`), `ids.npy`, `meta.json` (model key and source, dim, count, device, seconds, images/sec, date, git SHA).

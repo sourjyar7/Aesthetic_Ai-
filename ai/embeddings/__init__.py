@@ -7,7 +7,7 @@ from ai.embeddings.registry import MODELS, ModelSpec
 __all__ = ["MODELS", "Embedder", "ModelSpec", "OpenClipEmbedder", "Vectors", "load_embedder"]
 
 
-def load_embedder(model_key: str, device: str | None = None) -> Embedder:
+def load_embedder(model_key: str, device: str | None = None, batch_size: int = 64) -> Embedder:
     if model_key not in MODELS:
         raise ValueError(f"unknown model {model_key!r}; choose from {sorted(MODELS)}")
-    return OpenClipEmbedder(MODELS[model_key], device=device)
+    return OpenClipEmbedder(MODELS[model_key], device=device, batch_size=batch_size)
